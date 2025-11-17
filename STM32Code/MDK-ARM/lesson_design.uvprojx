@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32G030xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/STM32G0xx_HAL_Driver/Inc;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/STM32G0xx_HAL_Driver/Inc/Legacy;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/CMSIS/Device/ST/STM32G0xx/Include;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/CMSIS/Include</IncludePath>
+              <IncludePath>../Core/Inc;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/STM32G0xx_HAL_Driver/Inc;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/STM32G0xx_HAL_Driver/Inc/Legacy;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/CMSIS/Device/ST/STM32G0xx/Include;C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_V1.6.2/Drivers/CMSIS/Include;../APP</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -731,6 +731,26 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>APP</GroupName>
+          <Files>
+            <File>
+              <FileName>scheduler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\scheduler.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\uart_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_system.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\bsp_system.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::CMSIS</GroupName>
         </Group>
       </Groups>
@@ -749,5 +769,14 @@
     </components>
     <files/>
   </RTE>
+
+  <LayerInfo>
+    <Layers>
+      <Layer>
+        <LayName>lesson_design</LayName>
+        <LayPrjMark>1</LayPrjMark>
+      </Layer>
+    </Layers>
+  </LayerInfo>
 
 </Project>

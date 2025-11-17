@@ -35,6 +35,7 @@ lesson_design\main.o: C:/Users/TimStarling/STM32Cube/Repository/STM32Cube_FW_G0_
 lesson_design\main.o: ../Core/Inc/dma.h
 lesson_design\main.o: ../Core/Inc/usart.h
 lesson_design\main.o: ../Core/Inc/gpio.h
+lesson_design\main.o: ../APP/bsp_system.h
 lesson_design\main.o: D:\keil5\ARM\ARMCC\Bin\..\include\stdio.h
-lesson_design\main.o: D:\keil5\ARM\ARMCC\Bin\..\include\string.h
 lesson_design\main.o: D:\keil5\ARM\ARMCC\Bin\..\include\stdarg.h
+lesson_design\main.o: D:\keil5\ARM\ARMCC\Bin\..\include\string.h
