@@ -24,5 +24,5 @@ void system_test()
 	  HAL_Delay(500);
 		
 	  /*´®¿Ú²âÊÔ*/
-	  printf("Hellow World!");
+	  //printf("Hellow World!");
 }
