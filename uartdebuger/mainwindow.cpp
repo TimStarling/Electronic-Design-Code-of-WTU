@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <QtGlobal>
 
+// 简易示波器绘制组件：负责波形显示及基本测量计算
 class OscilloscopeWidget : public QWidget
 {
 public:
@@ -136,25 +137,28 @@ protected:
 private:
     QVector<double> visibleValues() const
     {
+        // 计算当前时基下需要展示的样本数
         const double totalTimeSec = (m_timeBaseMs / 1000.0) * 10.0; // 10 div
         const int samples = static_cast<int>(totalTimeSec * m_sampleRate);
         if (samples <= 0 || m_values.isEmpty()) return {};
+        // 仅截取尾部窗口，避免全量渲染过多数据
         const int start = std::max(0, m_values.size() - samples);
         return m_values.mid(start);
     }
 
     void computeStats()
     {
+        // 只对当前可见的数据窗口做统计，避免超大数据影响实时性
         QVector<double> values = visibleValues();
         m_stats = Stats();
         if (values.isEmpty()) {
             return;
         }
-        const int n = values.size();
+        const int n = values.size(); // 当前可见采样点数
         m_stats.samples = n;
-        double minV = values.first();
+        double minV = values.first(); // 初始最小值
         double maxV = values.first();
-        double sum = 0;
+        double sum = 0; // 求和用于均值
         double sumSq = 0;
         for (double v : values) {
             minV = std::min(minV, v);
@@ -166,12 +170,12 @@ private:
         m_stats.max = maxV;
         m_stats.peakToPeak = maxV - minV;
         m_stats.mean = sum / n;
-        m_stats.rms = std::sqrt(sumSq / n);
+        m_stats.rms = std::sqrt(sumSq / n); // 均方根
 
-        const double dt = 1.0 / m_sampleRate;
-        // Zero-crossing for period/freq
-        double lastCross = -1;
-        QVector<double> periods;
+        const double dt = 1.0 / m_sampleRate; // 采样周期
+        // Zero-crossing for period/freq（均值作为阈值）
+        double lastCross = -1; // 上一次零交叉时间
+        QVector<double> periods; // 周期集合
         for (int i = 1; i < n; ++i) {
             const double v0 = values[i - 1] - m_stats.mean;
             const double v1 = values[i] - m_stats.mean;
@@ -193,14 +197,14 @@ private:
             m_stats.hasPeriod = true;
         }
 
-        // Rise/fall/pulse/duty (simple threshold method)
+        // Rise/fall/pulse/duty (simple threshold method，使用 10%/90% 阈值)
         const double highThresh = m_stats.min + 0.9 * (m_stats.peakToPeak);
         const double lowThresh = m_stats.min + 0.1 * (m_stats.peakToPeak);
-        int firstLow = -1, firstHigh = -1, lastHigh = -1;
+        int firstLow = -1, firstHigh = -1;
         double riseStart = -1, riseEnd = -1, fallStart = -1, fallEnd = -1;
-        QVector<double> highDurations;
-        QVector<double> risingEdges;
-        double currentHighStart = -1;
+        QVector<double> highDurations; // 高电平持续时间
+        QVector<double> risingEdges;   // 上升沿时间点
+        double currentHighStart = -1;  // 当前高电平开始时间
         for (int i = 1; i < n; ++i) {
             double prev = values[i - 1];
             double curr = values[i];
@@ -221,7 +225,6 @@ private:
                     highDurations.append(t - currentHighStart);
                 }
                 currentHighStart = -1;
-                lastHigh = i;
             }
             if (prev < highThresh && curr >= highThresh && firstHigh < 0) {
                 firstHigh = i;
@@ -307,6 +310,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::initUi()
 {
+    // 串口参数下拉初始化
     ui->baudRateComboBox->addItems({"9600", "19200", "38400", "57600", "115200", "230400", "460800"});
     ui->baudRateComboBox->setEditable(true);
 
@@ -332,6 +336,7 @@ void MainWindow::initUi()
     ui->flowControlComboBox->addItem(QStringLiteral("硬件 RTS/CTS"), QSerialPort::HardwareControl);
     ui->flowControlComboBox->addItem(QStringLiteral("软件 XON/XOFF"), QSerialPort::SoftwareControl);
 
+    // 编码与换行选择
     ui->encodingComboBox->addItem(QStringLiteral("UTF-8"), "UTF-8");
     ui->encodingComboBox->addItem(QStringLiteral("GBK"), "GBK");
     ui->encodingComboBox->addItem(QStringLiteral("本地 8 位"), QByteArray());
@@ -343,8 +348,10 @@ void MainWindow::initUi()
     ui->receiveTextEdit->setLineWrapMode(QTextEdit::NoWrap);
     ui->sendTextEdit->setLineWrapMode(QTextEdit::NoWrap);
 
+    // 状态栏初始提示
     ui->statusbar->showMessage(QStringLiteral("已就绪"));
 
+    // 自动发送定时器
     m_autoSendTimer.setInterval(ui->sendIntervalSpinBox->value());
     connect(&m_autoSendTimer, &QTimer::timeout, this, &MainWindow::handleAutoSendTick);
 
@@ -358,6 +365,7 @@ void MainWindow::initUi()
 
 void MainWindow::connectSignals()
 {
+    // 串口与收发控制
     connect(ui->refreshPortsButton, &QPushButton::clicked, this, &MainWindow::refreshPorts);
     connect(ui->connectButton, &QPushButton::clicked, this, &MainWindow::toggleConnection);
     connect(ui->sendButton, &QPushButton::clicked, this, &MainWindow::sendData);
@@ -370,6 +378,7 @@ void MainWindow::connectSignals()
     connect(ui->stopAutoSendButton, &QPushButton::clicked, this, &MainWindow::stopAutoSend);
     connect(ui->searchNextButton, &QPushButton::clicked, this, &MainWindow::findNext);
 
+    // 命令库
     connect(ui->addCommandButton, &QPushButton::clicked, this, &MainWindow::addCommand);
     connect(ui->editCommandButton, &QPushButton::clicked, this, &MainWindow::editCommand);
     connect(ui->removeCommandButton, &QPushButton::clicked, this, &MainWindow::removeCommand);
@@ -378,6 +387,7 @@ void MainWindow::connectSignals()
     connect(ui->loadCommandButton, &QPushButton::clicked, this, &MainWindow::loadCommandToSend);
     connect(ui->commandListWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::commandDoubleClicked);
 
+    // 示波器与帮助
     connect(ui->receiveTabWidget, &QTabWidget::currentChanged, this, &MainWindow::handleScopeSettingChanged);
     connect(ui->scopeBitsSpinBox, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::handleScopeSettingChanged);
     connect(ui->scopeVMinSpinBox, static_cast<void(QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), this, &MainWindow::handleScopeSettingChanged);
@@ -389,6 +399,7 @@ void MainWindow::connectSignals()
     connect(ui->clearScopeButton, &QPushButton::clicked, this, &MainWindow::clearScope);
     connect(ui->pauseTextCheckBox, &QCheckBox::toggled, this, &MainWindow::togglePauseText);
     connect(ui->pauseScopeCheckBox, &QCheckBox::toggled, this, &MainWindow::togglePauseScope);
+    connect(ui->actionHelpGuide, &QAction::triggered, this, &MainWindow::showHelpGuide);
 
     connect(&m_serial, &QSerialPort::readyRead, this, &MainWindow::handleReadyRead);
     connect(&m_serial, &QSerialPort::errorOccurred, this, &MainWindow::handleSerialError);
@@ -474,6 +485,7 @@ void MainWindow::applyStyleSheet()
 
 void MainWindow::updatePortList(bool force)
 {
+    // 收集当前系统串口列表
     QStringList ports;
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
         ports << info.portName();
@@ -483,6 +495,7 @@ void MainWindow::updatePortList(bool force)
     }
     m_lastPorts = ports;
 
+    // 记住当前选择，刷新后尽量保持
     const QString currentPort = ui->portComboBox->currentData().toString().isEmpty()
             ? ui->portComboBox->currentText()
             : ui->portComboBox->currentData().toString();
@@ -506,6 +519,7 @@ void MainWindow::updatePortList(bool force)
 
 void MainWindow::applySettings()
 {
+    // 启动时将持久化的界面/通信参数还原
     m_settings.beginGroup(kSettingsGroup);
     restoreGeometry(m_settings.value("geometry").toByteArray());
     ui->baudRateComboBox->setEditText(m_settings.value("baud", "115200").toString());
@@ -534,6 +548,7 @@ void MainWindow::applySettings()
 
 void MainWindow::persistSettings()
 {
+    // 退出前保存当前配置，方便下次启动恢复
     m_settings.beginGroup(kSettingsGroup);
     m_settings.setValue("geometry", saveGeometry());
     m_settings.setValue("baud", ui->baudRateComboBox->currentText());
@@ -584,12 +599,14 @@ void MainWindow::refreshPorts()
 void MainWindow::toggleConnection()
 {
     if (m_serial.isOpen()) {
+        // 已连接则关闭
         stopAutoSend();
         m_serial.close();
         setConnected(false);
         return;
     }
 
+    // 解析当前选择的串口名称
     const QString portName = ui->portComboBox->currentData().toString().isEmpty()
             ? ui->portComboBox->currentText()
             : ui->portComboBox->currentData().toString();
@@ -600,6 +617,7 @@ void MainWindow::toggleConnection()
     m_serial.setPortName(portName);
     m_serial.setReadBufferSize(ui->bufferSizeSpinBox->value());
 
+    // 参数校验并逐项设置
     bool ok = false;
     int baud = ui->baudRateComboBox->currentText().toInt(&ok);
     if (!ok) {
@@ -639,10 +657,12 @@ void MainWindow::toggleConnection()
 
 void MainWindow::handleReadyRead()
 {
+    // 读取串口缓冲中的全部可用数据
     const QByteArray data = m_serial.readAll();
     if (data.isEmpty()) {
         return;
     }
+    // 更新接收字节计数并显示
     m_rxBytes += data.size();
     ui->rxBytesLabel->setText(QString::number(m_rxBytes));
 
@@ -654,6 +674,7 @@ void MainWindow::handleReadyRead()
         return;
     }
 
+    // 文本模式可暂停，暂停时直接丢弃
     if (m_pauseText) {
         return;
     }
@@ -683,6 +704,7 @@ void MainWindow::handleReadyRead()
 
 void MainWindow::handleSerialError(QSerialPort::SerialPortError error)
 {
+    // 捕获串口异常；致命错误会强制断开
     if (error == QSerialPort::NoError) {
         return;
     }
@@ -697,6 +719,7 @@ void MainWindow::handleSerialError(QSerialPort::SerialPortError error)
 
 QByteArray MainWindow::encodeText(const QString &text) const
 {
+    // 按当前选择的编码将 Unicode 文本转为字节
     const QByteArray codecName = ui->encodingComboBox->currentData().toByteArray();
     if (codecName.isEmpty()) {
         return text.toLocal8Bit();
@@ -710,6 +733,7 @@ QByteArray MainWindow::encodeText(const QString &text) const
 
 QString MainWindow::decodeBytes(const QByteArray &bytes) const
 {
+    // 按当前选择的编码将字节转为 Unicode 文本
     const QByteArray codecName = ui->encodingComboBox->currentData().toByteArray();
     if (codecName.isEmpty()) {
         return QString::fromLocal8Bit(bytes);
@@ -723,6 +747,7 @@ QString MainWindow::decodeBytes(const QByteArray &bytes) const
 
 QByteArray MainWindow::buildPayload(bool *ok, QString *error) const
 {
+    // 根据当前发送模式构造 payload：HEX 文本转字节或普通文本按编码转字节
     *ok = false;
     QByteArray payload;
     const QString newline = ui->newlineComboBox->currentData().toString();
@@ -761,6 +786,7 @@ void MainWindow::sendData()
 
 bool MainWindow::transmitPayload(bool showDialogs)
 {
+    // 统一的发送入口，附带计数和提示
     if (!m_serial.isOpen()) {
         if (showDialogs) {
             QMessageBox::warning(this, QStringLiteral("发送"), QStringLiteral("串口未打开。"));
@@ -825,6 +851,7 @@ void MainWindow::saveReceive()
 
 void MainWindow::loadFileIntoSend()
 {
+    // 将文件内容按当前编码读取到发送区
     const QString fileName = QFileDialog::getOpenFileName(this, QStringLiteral("加载文件"), QString(), QStringLiteral("所有文件 (*)"));
     if (fileName.isEmpty()) {
         return;
@@ -840,6 +867,7 @@ void MainWindow::loadFileIntoSend()
 
 void MainWindow::sendBinaryFile()
 {
+    // 直接逐字节发送文件内容，不做编码转换
     if (!m_serial.isOpen()) {
         QMessageBox::warning(this, QStringLiteral("二进制发送"), QStringLiteral("串口未打开。"));
         return;
@@ -866,6 +894,7 @@ void MainWindow::sendBinaryFile()
 
 void MainWindow::startAutoSend()
 {
+    // 启动自动发送：按设定间隔循环触发 sendData
     if (!m_serial.isOpen()) {
         QMessageBox::warning(this, QStringLiteral("自动发送"), QStringLiteral("串口未打开。"));
         return;
@@ -887,6 +916,7 @@ void MainWindow::stopAutoSend()
 
 void MainWindow::handleAutoSendTick()
 {
+    // 定时触发一次发送；失败则停止自动发送
     if (!m_serial.isOpen()) {
         stopAutoSend();
         return;
@@ -915,6 +945,7 @@ void MainWindow::handleAutoSendTick()
 
 void MainWindow::findNext()
 {
+    // 在接收区继续查找下一处匹配
     const QString term = ui->searchLineEdit->text();
     if (term.isEmpty()) {
         return;
@@ -930,6 +961,7 @@ void MainWindow::findNext()
 
 void MainWindow::appendReceiveText(const QString &text)
 {
+    // 追加文本并根据设置自动滚动
     ui->receiveTextEdit->append(text);
     if (ui->autoScrollCheckBox->isChecked()) {
         ui->receiveTextEdit->moveCursor(QTextCursor::End);
@@ -1039,6 +1071,7 @@ void MainWindow::updateScopeLabels()
 
 void MainWindow::addCommand()
 {
+    // 将当前发送区内容保存为命令条目
     QString name = QInputDialog::getText(this, QStringLiteral("添加命令"), QStringLiteral("名称："));
     if (name.isEmpty()) {
         return;
@@ -1091,6 +1124,7 @@ void MainWindow::removeCommand()
 
 void MainWindow::importCommands()
 {
+    // 从 JSON 文件导入命令库
     const QString fileName = QFileDialog::getOpenFileName(this, QStringLiteral("导入命令"), QString(), QStringLiteral("JSON (*.json);;所有文件 (*)"));
     if (fileName.isEmpty()) {
         return;
@@ -1127,6 +1161,7 @@ void MainWindow::importCommands()
 
 void MainWindow::exportCommands()
 {
+    // 将当前命令库导出到 JSON 文件
     const QString fileName = QFileDialog::getSaveFileName(this, QStringLiteral("导出命令"), QString(), QStringLiteral("JSON (*.json);;所有文件 (*)"));
     if (fileName.isEmpty()) {
         return;
@@ -1237,8 +1272,26 @@ void MainWindow::togglePauseScope(bool checked)
     }
 }
 
+void MainWindow::showHelpGuide()
+{
+    // 简要使用说明，包含串口与示波器输入格式
+    const QString text = QStringLiteral(
+        "串口调试助手使用说明：\n"
+        "by@星辰所向 2025 持续更新中\n"
+        "\n"
+        "1. 串口：在左侧选择端口、波特率、数据位、校验位、停止位后点击“打开”。\n"
+        "2. 发送：可文本或 HEX 发送，支持换行设置和自动发送。\n"
+        "3. 接收：文本模式可查找/保存；示波器模式将串口发来的数字映射为电压波形。\n"
+        "4. 示波器输入格式：发送 ASCII 数字并以换行结束，例如 printf(\"%d\\r\\n\", n); n 为正整数，分隔符可用空格/逗号/换行。\n"
+        "5. 示波器参数：设置分辨率 n、0 对应电压、满量程电压、采样率、时基、电压放大，点击 AUTO 可自动调整显示。\n"
+        "6. 暂停：文本/波形均可单独暂停接收。\n"
+        "如需更多帮助，可根据实际硬件需求调整相关参数。");
+    QMessageBox::information(this, QStringLiteral("使用说明"), text);
+}
+
 void MainWindow::handleCommandSend(const CommandEntry &entry, bool sendNow)
 {
+    // 将命令内容加载到发送区，必要时立即发送
     ui->sendTextEdit->setPlainText(entry.data);
     ui->hexSendCheckBox->setChecked(entry.hexMode);
     if (sendNow) {
